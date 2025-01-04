@@ -24,9 +24,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Debug Repository Files
+        run: |
+          echo "Listing all files in the repository:"
+          ls -R
+
       - name: Deploy Bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          python /api/webhook.py
+          python api/webhook.py
