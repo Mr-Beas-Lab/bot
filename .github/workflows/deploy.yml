@@ -29,4 +29,4 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          python main.py
+          python /api/webhook.py
