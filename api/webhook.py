@@ -29,7 +29,7 @@ bucket = storage.bucket()
 
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mr-beas-lab.github.io/miniApp/")))
+    keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mr-beas-lab.github.io/miniApp")))
     return keyboard
 
 
