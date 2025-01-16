@@ -22,14 +22,14 @@ bot = AsyncTeleBot(BOT_TOKEN)
 
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
-firebase_admin.initialize_app(cred, {'storageBucket': "Mr-Beas-Lab/mini_app"})
+firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"})
 db = firestore.client()
 bucket = storage.bucket()
 
 
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrb-crypto.vercel.app")))
+    keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mr-beas-lab.github.io/miniApp/")))
     return keyboard
 
 
