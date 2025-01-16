@@ -26,6 +26,13 @@ firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"
 db = firestore.client()
 bucket = storage.bucket()
 
+# Generate language selection keyboard
+def generate_language_keyboard():
+    keyboard = InlineKeyboardMarkup()
+    keyboard.add(InlineKeyboardButton("English", callback_data="lang_english"))
+    keyboard.add(InlineKeyboardButton("Chinese", callback_data="lang_chinese"))
+    keyboard.add(InlineKeyboardButton("Spanish", callback_data="lang_spanish"))
+    return keyboard
 
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
@@ -42,12 +49,7 @@ async def start(message):
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
     text = message.text.split()
-    welcome_message = (  
-        f"Hello {user_first_name} {user_last_name}! 👋\n\n"
-        f"Welcome to Mr. John.\n\n"
-        f"Here you can earn coins!\n\n"
-        f"Invite friends to earn more coins together, and level up faster! 🧨\n"
-    )
+  
 
     try:
         user_ref = db.collection('users').document(user_id)
@@ -70,17 +72,8 @@ async def start(message):
                     'claimedDay': 0
                 },
                 'WalletAddress': None,
-                'exchangeKey': {
-                    'apiKey': None,
-                    'secretKey': None,
-                },
-                'buy_analyzer_tool': {
-                    'isActive': False,
-                    'duration': None,  
-                    'amount': 0,      
-                    'expirationDate': None,
-                    'lastPurchase': firestore.SERVER_TIMESTAMP  # Automatically set to the current time
-                }
+                 
+                 
             }
 
             if len(text) > 1 and text[1].startswith('ref_'):   
@@ -115,11 +108,28 @@ async def start(message):
             user_ref.set(user_data)
 
         keyboard = generate_start_keyboard()
-        await bot.reply_to(message, welcome_message, reply_markup=keyboard)  
+        await bot.reply_to(message, "Please select your language:", reply_markup=generate_language_keyboard())
     except Exception as e:
         error_message = "Error. Please try again!"
         await bot.reply_to(message, error_message)  
         print(f"Error occurred: {str(e)}")  
+
+async def handle_language_selection(call):
+    user_id = str(call.from_user.id)
+    selected_language = call.data.split('_')[1]  # Extract language from callback data
+
+    # Update user's language in Firestore
+    user_ref = db.collection('users').document(user_id)
+    user_ref.update({'language': selected_language})
+
+    # Welcome message
+    welcome_message = {
+        'english': f"Hello! 👋\n\nWelcome to Mr. John. Here you can earn coins!",
+        'chinese': f"你好！👋\n\n欢迎来到 Mr. John。在这里你可以赚取金币！",
+        'spanish': f"¡Hola! 👋\n\nBienvenido a Mr. John. ¡Aquí puedes ganar monedas!",
+    }.get(selected_language, "Hello! 👋\n\nWelcome to Mr. John.")
+
+    await bot.send_message(call.message.chat.id, welcome_message, reply_markup=generate_start_keyboard())
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
