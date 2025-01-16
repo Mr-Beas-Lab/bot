@@ -43,7 +43,7 @@ async def start(message):
     is_premium = message.from_user.is_premium
     text = message.text.split()
     welcome_message = (  
-        f"Hello {user_first_name} {user_last_name}! 👋\n\n"
+    f"Hello {user_first_name} {user_last_name if user_last_name else ''}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
