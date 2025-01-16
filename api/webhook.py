@@ -30,11 +30,6 @@ def generate_language_keyboard():
     keyboard.add(InlineKeyboardButton("Spanish", callback_data="lang_spanish"))
     return keyboard
 
-def generate_start_keyboard():
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrb-crypto.vercel.app")))
-    return keyboard
-
 @bot.message_handler(commands=['start'])  
 async def start(message):
     user_id = str(message.from_user.id)  
@@ -43,8 +38,7 @@ async def start(message):
     user_username = message.from_user.username
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
-    text = message.text.split()
-  
+
     try:
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
@@ -65,38 +59,9 @@ async def start(message):
                 },
                 'WalletAddress': None,
             }
-
-            if len(text) > 1 and text[1].startswith('ref_'):   
-                referrer_id = text[1][4:]
-                referrer_ref = db.collection('users').document(referrer_id)
-                referrer_doc = referrer_ref.get()
-
-                if referrer_doc.exists:
-                    user_data['referredBy'] = referrer_id
-                    referrer_data = referrer_doc.to_dict()
-                    bonus_amount = 500 if is_premium else 100
-                    current_balance = referrer_data.get('balance', 0)
-                    new_balance = current_balance + bonus_amount
-
-                    referrals = referrer_data.get('referrals', {})
-                    if referrals is None:
-                        referrals = {}
-                    referrals[user_id] = {
-                        'addedValue': bonus_amount,
-                        'firstName': user_first_name,
-                        'lastName': user_last_name,
-                        'userImage': None,
-                    }  
-
-                    referrer_ref.update({
-                        'balance': new_balance,
-                        'referrals': referrals
-                    })
-                else:
-                    user_data['referredBy'] = None
-
             user_ref.set(user_data)
 
+        # Send the language selection keyboard
         await bot.reply_to(message, "Please select your language:", reply_markup=generate_language_keyboard())
     except Exception as e:
         error_message = "Error. Please try again!"
