@@ -23,10 +23,10 @@ firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"
 db = firestore.client()
 bucket = storage.bucket()
 
-# Generate main menu keyboard
-# Update the generate_main_keyboard function to resize buttons
+ 
+# Function to generate the main keyboard with language selection and additional buttons
 def generate_main_keyboard(selected_language=None):
-    keyboard = InlineKeyboardMarkup(row_width=3)  
+    keyboard = types.InlineKeyboardMarkup(row_width=3)
     languages = {
         "language_english": "🇬🇧 English",
         "language_chinese": "🇨🇳 Chinese",
@@ -37,19 +37,79 @@ def generate_main_keyboard(selected_language=None):
     for callback_data, label in languages.items():
         if selected_language and callback_data.endswith(selected_language):
             label += " ✅"  # Add the checkmark for the selected language
-        buttons.append(InlineKeyboardButton(label, callback_data=callback_data))
+        buttons.append(types.InlineKeyboardButton(label, callback_data=callback_data))
 
     # Add the language buttons in rows
-    keyboard.add(*buttons)  # Distributes buttons automatically based on row_width
+    keyboard.add(*buttons)
 
     # Add additional buttons in separate rows
     keyboard.add(
-        InlineKeyboardButton("📢 Join Channel", url="https://t.me/YourChannelName"),
-        InlineKeyboardButton("🚀 Launch App", web_app=WebAppInfo(url="https://mrb-theta.vercel.app"))
+        types.InlineKeyboardButton("📢 Join Channel", url="https://t.me/mrbeas_group"),
+        types.InlineKeyboardButton("🚀 Launch App", web_app=types.WebAppInfo(url="https://mrb-theta.vercel.app"))
     )
     return keyboard
 
-# Update the language_selection callback handler
+# Handle '/start' command
+@bot.message_handler(commands=['start'])
+async def start(message):
+    user_id = str(message.from_user.id)
+    try:
+        user_ref = db.collection('users').document(user_id)
+        user_doc = user_ref.get()
+
+        if not user_doc.exists:
+            # Initialize user data without language selected yet
+            user_data = {
+                'firstName': message.from_user.first_name,
+                'lastName': message.from_user.last_name,
+                'username': message.from_user.username,
+                'languageCode': None,
+                'isPremium': message.from_user.is_premium,
+                'balance': 0,
+                'daily': {'claimedTime': None, 'claimedDay': 0},
+                'WalletAddress': None
+            }
+            text = message.text.split()  
+            if len(text) > 1 and text[1].startswith('ref_'):   
+                referrer_id = text[1][4:]
+                referrer_ref = db.collection('users').document(referrer_id)
+                referrer_doc = referrer_ref.get()
+
+                if referrer_doc.exists:
+                    user_data['referredBy'] = referrer_id
+                    referrer_data = referrer_doc.to_dict()
+                    bonus_amount = 500 if message.from_user.is_premium else 100
+                    current_balance = referrer_data.get('balance', 0)
+                    new_balance = current_balance + bonus_amount
+
+                    referrals = referrer_data.get('referrals', {})
+                    referrals[user_id] = {
+                        'addedValue': bonus_amount,
+                        'firstName': message.from_user.first_name,
+                        'lastName': message.from_user.last_name,
+                        'userImage': message.from_user.photo_url,
+                    }
+
+                    referrer_ref.update({
+                        'balance': new_balance,
+                        'referrals': referrals
+                    })
+                else:
+                    user_data['referredBy'] = None
+
+            user_ref.set(user_data)
+
+        # Define welcome message and language selection
+        welcome_message = f"Hello {message.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨"
+        keyboard = generate_main_keyboard()
+        await bot.reply_to(message, welcome_message, reply_markup=keyboard)  
+
+    except Exception as e:
+        error_message = "Error. Please try again!"
+        await bot.send_message(message.chat.id, error_message)  
+        print(f"Error occurred: {str(e)}")
+
+# Handle language selection callback
 @bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
 async def language_selection(call):
     user_id = str(call.from_user.id)
@@ -73,59 +133,7 @@ async def language_selection(call):
     keyboard = generate_main_keyboard(selected_language)
     await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
 
-# Handle '/start' command
-@bot.message_handler(commands=['start'])
-async def start(message):
-    user_id = str(message.from_user.id)
-    try:
-        user_ref = db.collection('users').document(user_id)
-        user_doc = user_ref.get()
 
-        if not user_doc.exists:
-            # Initialize user data without language selected yet
-            user_data = {
-                'firstName': message.from_user.first_name,
-                'lastName': message.from_user.last_name,
-                'username': message.from_user.username,
-                'languageCode': None,
-                'isPremium': message.from_user.is_premium,
-                'balance': 0,
-                'daily': {'claimedTime': None, 'claimedDay': 0},
-                'WalletAddress': None
-            }
-            user_ref.set(user_data)
-
-        # Ask user to select a language and show main menu
-        keyboard = generate_main_keyboard()
-        await bot.reply_to(message, "Welcome! Please select your language:", reply_markup=keyboard)
-
-    except Exception as e:
-        await bot.reply_to(message, "Error occurred. Please try again.")
-        print(f"Error occurred: {str(e)}")
-
-# Handle language selection callback
-@bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
-async def language_selection(call):
-    user_id = str(call.from_user.id)
-    selected_language = call.data.split('_')[1]
-
-    # Save the selected language in the user's data
-    user_ref = db.collection('users').document(user_id)
-    user_ref.update({'languageCode': selected_language})
-
-    # Define welcome messages in different languages
-    messages = {
-        'english': f"Hello {call.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨",
-        'chinese': f"你好 {call.from_user.first_name}！👋\n\n欢迎来到Mr. John。\n在这里你可以赚取硬币！\n邀请朋友一起赚取更多硬币，快速升级！🧨",
-        'spanish': f"¡Hola {call.from_user.first_name}! 👋\n\nBienvenido a Mr. John.\n¡Aquí puedes ganar monedas!\nInvita amigos para ganar más monedas juntos y subir de nivel más rápido! 🧨"
-    }
-
-    # Send the welcome message based on selected language
-    welcome_message = messages.get(selected_language, messages['english'])
-
-    # Show main menu with web app link
-    keyboard = generate_main_keyboard()
-    await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
 
 # Handle incoming updates
 class handler(BaseHTTPRequestHandler):
