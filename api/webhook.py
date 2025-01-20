@@ -24,14 +24,54 @@ db = firestore.client()
 bucket = storage.bucket()
 
 # Generate main menu keyboard
-def generate_main_keyboard():
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("🇬🇧 English", callback_data="language_english"))
-    keyboard.add(InlineKeyboardButton("🇨🇳 Chinese", callback_data="language_chinese"))
-    keyboard.add(InlineKeyboardButton("🇪🇸 Spanish", callback_data="language_spanish"))
-    keyboard.add(InlineKeyboardButton("📢 Join Channel", url="https://t.me/YourChannelName"))
-    keyboard.add(InlineKeyboardButton("🚀 Launch App", web_app=WebAppInfo(url="https://mrb-theta.vercel.app")))
+# Update the generate_main_keyboard function to resize buttons
+def generate_main_keyboard(selected_language=None):
+    keyboard = InlineKeyboardMarkup(row_width=3)  
+    languages = {
+        "language_english": "🇬🇧 English",
+        "language_chinese": "🇨🇳 Chinese",
+        "language_spanish": "🇪🇸 Spanish"
+    }
+
+    buttons = []
+    for callback_data, label in languages.items():
+        if selected_language and callback_data.endswith(selected_language):
+            label += " ✅"  # Add the checkmark for the selected language
+        buttons.append(InlineKeyboardButton(label, callback_data=callback_data))
+
+    # Add the language buttons in rows
+    keyboard.add(*buttons)  # Distributes buttons automatically based on row_width
+
+    # Add additional buttons in separate rows
+    keyboard.add(
+        InlineKeyboardButton("📢 Join Channel", url="https://t.me/YourChannelName"),
+        InlineKeyboardButton("🚀 Launch App", web_app=WebAppInfo(url="https://mrb-theta.vercel.app"))
+    )
     return keyboard
+
+# Update the language_selection callback handler
+@bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
+async def language_selection(call):
+    user_id = str(call.from_user.id)
+    selected_language = call.data.split('_')[1]
+
+    # Save the selected language in the user's data
+    user_ref = db.collection('users').document(user_id)
+    user_ref.update({'languageCode': selected_language})
+
+    # Define welcome messages in different languages
+    messages = {
+        'english': f"Hello {call.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨",
+        'chinese': f"你好 {call.from_user.first_name}！👋\n\n欢迎来到Mr. John。\n在这里你可以赚取硬币！\n邀请朋友一起赚取更多硬币，快速升级！🧨",
+        'spanish': f"¡Hola {call.from_user.first_name}! 👋\n\nBienvenido a Mr. John.\n¡Aquí puedes ganar monedas!\nInvita amigos para ganar más monedas juntos y subir de nivel más rápido! 🧨"
+    }
+
+    # Send the welcome message based on selected language
+    welcome_message = messages.get(selected_language, messages['english'])
+
+    # Show main menu with the updated language selection
+    keyboard = generate_main_keyboard(selected_language)
+    await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
 
 # Handle '/start' command
 @bot.message_handler(commands=['start'])
