@@ -10,7 +10,6 @@ from telebot import types
 from dotenv import load_dotenv
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from message import get_welcome_messages
-
 # Load environment variables
 load_dotenv()
 
@@ -40,6 +39,7 @@ def generate_main_keyboard(selected_language=None):
             label += " ✅"
         buttons.append(types.InlineKeyboardButton(label, callback_data=callback_data))
 
+    keyboard.add(*buttons)
     keyboard.add(
         types.InlineKeyboardButton("📢 Join Channel", url="https://t.me/mrbeas_group"),
         types.InlineKeyboardButton("🚀 Launch App", web_app=types.WebAppInfo(url="https://mrb-theta.vercel.app"))
@@ -95,7 +95,6 @@ async def start(message):
 
             if len(text) > 1 and text[1].startswith('ref_'):
                 referrer_id = text[1][4:]
-                print(f"Referrer ID: {referrer_id}")
 
                 referrer_ref = db.collection('users').document(referrer_id)
                 referrer_doc = referrer_ref.get()
@@ -119,10 +118,7 @@ async def start(message):
                         'balance': new_balance,
                         'referrals': referrals
                     })
-                    
-                    print(f"Updated referrer balance: {new_balance} and referrals: {referrals}")
                 else:
-                    print(f"Referrer document does not exist for ID: {referrer_id}")
                     user_data['referredBy'] = None
 
             user_ref.set(user_data)
@@ -135,6 +131,27 @@ async def start(message):
         error_message = "Error. Please try again!"
         await bot.send_message(message.chat.id, error_message)
         print(f"Error occurred: {str(e)}")
+
+
+# Handle language selection callback
+@bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
+async def language_selection(call):
+    user_id = str(call.from_user.id)
+    selected_language = call.data.split('_')[1]
+
+    user_ref = db.collection('users').document(user_id)
+    user_ref.update({'languageCode': selected_language})
+
+    messages = {
+        'english': f"Hello {call.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨",
+        'chinese': f"你好 {call.from_user.first_name}！👋\n\n欢迎来到Mr. John。\n在这里你可以赚取硬币！\n邀请朋友一起赚取更多硬币，快速升级！🧨",
+        'spanish': f"¡Hola {call.from_user.first_name}! 👋\n\nBienvenido a Mr. John.\n¡Aquí puedes ganar monedas!\nInvita amigos para ganar más monedas juntos y subir de nivel más rápido! 🧨"
+    }
+
+    welcome_message = messages.get(selected_language, messages['english'])
+    keyboard = generate_main_keyboard(selected_language)
+    await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
+
 
 # Handle language selection callback
 @bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
@@ -151,6 +168,7 @@ async def language_selection(call):
     welcome_message = welcome_messages.get(selected_language, welcome_messages['english'])
     keyboard = generate_main_keyboard(selected_language)
     await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
+
 
 # HTTP Server to handle updates from Telegram Webhook
 class Handler(BaseHTTPRequestHandler):
@@ -172,4 +190,5 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
+
  
