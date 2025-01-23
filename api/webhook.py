@@ -132,27 +132,6 @@ async def start(message):
         await bot.send_message(message.chat.id, error_message)
         print(f"Error occurred: {str(e)}")
 
-
-# Handle language selection callback
-@bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
-async def language_selection(call):
-    user_id = str(call.from_user.id)
-    selected_language = call.data.split('_')[1]
-
-    user_ref = db.collection('users').document(user_id)
-    user_ref.update({'languageCode': selected_language})
-
-    messages = {
-        'english': f"Hello {call.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨",
-        'chinese': f"你好 {call.from_user.first_name}！👋\n\n欢迎来到Mr. John。\n在这里你可以赚取硬币！\n邀请朋友一起赚取更多硬币，快速升级！🧨",
-        'spanish': f"¡Hola {call.from_user.first_name}! 👋\n\nBienvenido a Mr. John.\n¡Aquí puedes ganar monedas!\nInvita amigos para ganar más monedas juntos y subir de nivel más rápido! 🧨"
-    }
-
-    welcome_message = messages.get(selected_language, messages['english'])
-    keyboard = generate_main_keyboard(selected_language)
-    await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
-
-
 # Handle language selection callback
 @bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
 async def language_selection(call):
