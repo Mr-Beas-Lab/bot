@@ -83,6 +83,7 @@ async def start(message):
                 'isPremium': message.from_user.is_premium,
                 'referrals': {},
                 'balance': 0,
+                'tasks':[],
                 'daily': {'claimedTime': None, 'claimedDay': 0},
                 'WalletAddress': None,
                 'userImage': user_image
