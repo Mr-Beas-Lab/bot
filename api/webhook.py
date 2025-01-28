@@ -9,7 +9,8 @@ from firebase_admin import credentials, firestore, storage
 from telebot import types
 from dotenv import load_dotenv
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from message import get_welcome_messages
+from .message import get_welcome_messages
+
 # Load environment variables
 load_dotenv()
 
@@ -55,25 +56,6 @@ async def start(message):
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            # Handle profile photo upload
-            photo = await bot.get_user_profile_photos(user_id, limit=1)
-            user_image = None
-            if photo.total_count > 0:
-                file_id = photo.photos[0][-1].file_id
-                file_info = await bot.get_file(file_id)
-                file_path = file_info.file_path
-                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
-
-                # Download the image
-                response = requests.get(file_url)
-                if response.status_code == 200:
-                    # Upload the image to Firebase storage
-                    blob = bucket.blob(f"user_{user_id}.jpg")
-                    blob.upload_from_string(response.content, content_type="image/jpeg")
-
-                    # Generate signed URL for the image
-                    user_image = blob.generate_signed_url(datetime.timedelta(days=365), method="GET")
-
             # Initialize user data without language selected yet
             user_data = {
                 'firstName': message.from_user.first_name,
@@ -83,10 +65,10 @@ async def start(message):
                 'isPremium': message.from_user.is_premium,
                 'referrals': {},
                 'balance': 0,
-                'completedTasks':[],
+                'completedTasks': [],
                 'daily': {'claimedTime': None, 'claimedDay': 0},
                 'WalletAddress': None,
-                'userImage': user_image
+                'userImage': None  # Set userImage to null
             }
 
             text = message.text.split()
@@ -112,7 +94,7 @@ async def start(message):
                         'addedValue': bonus_amount,
                         'firstName': message.from_user.first_name,
                         'lastName': message.from_user.last_name,
-                        'userImage': user_image
+                        'userImage': None  # Keep userImage null in referrals
                     }
 
                     referrer_ref.update({
@@ -123,9 +105,17 @@ async def start(message):
                     user_data['referredBy'] = None
 
             user_ref.set(user_data)
+        
+        # Get the user's language preference
+        user_data = user_doc.to_dict()
+        selected_language = user_data.get('languageCode', 'english')  # Default to English if not set
 
-        welcome_message = f"Hello {message.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨"
-        keyboard = generate_main_keyboard()
+        # Use the imported function to get the welcome messages
+        welcome_messages = get_welcome_messages(message.from_user.first_name)
+
+        # Retrieve the appropriate welcome message based on the user's selected language
+        welcome_message = welcome_messages.get(selected_language, welcome_messages['english'])
+        keyboard = generate_main_keyboard(selected_language)
         await bot.reply_to(message, welcome_message, reply_markup=keyboard)
 
     except Exception as e:
@@ -149,7 +139,6 @@ async def language_selection(call):
     keyboard = generate_main_keyboard(selected_language)
     await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
 
-
 # HTTP Server to handle updates from Telegram Webhook
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -171,4 +160,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
 
- 
+# Start polling
+# if __name__ == '__main__':
+#     print("Bot is polling...")
+#     asyncio.run(bot.polling())
